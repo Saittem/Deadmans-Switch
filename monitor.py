@@ -87,8 +87,7 @@ def main():
             time.sleep(1)
         else:
             print("No response. Shutting down.")
-            os.system("echo test")
-            # os.system("shutdown /s /t 1")
+            os.system("shutdown /s /t 1")
             break
 
 # calls main function
