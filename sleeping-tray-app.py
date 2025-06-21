@@ -3,15 +3,20 @@ import json
 import time
 import threading
 from datetime import datetime
+from datetime import timedelta
 import tkinter as tk
 from tkinter import messagebox
 from pystray import Icon, MenuItem, Menu
 from winotify import Notification, audio
 from PIL import Image, ImageDraw
 
+
+
 CONFIG_PATH = "config.json"
 CLICKED_FLAG = False
 STOP_FLAG = False
+
+
 
 # ------------------- Config Functions ------------------- #
 def load_config():
@@ -32,6 +37,8 @@ def save_config(start_time, duration, interval):
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f)
 
+
+
 # ------------------- Tray Image ------------------- #
 def create_icon_image():
     image = Image.new("RGB", (64, 64), "blue")
@@ -39,14 +46,21 @@ def create_icon_image():
     draw.ellipse((16, 16, 48, 48), fill="white")
     return image
 
+
+
 # ------------------- Notification ------------------- #
 def send_notification():
+    helper_path = os.path.abspath("awaken.exe")
     toast = Notification(app_id="Wake Check",
                          title="Are you awake?",
-                         msg="Click 'I’m Awake' from the tray or your PC will shut down.",
+                         msg="Click the button or your PC will shut down in 1 minute.",
                          duration="long")
     toast.set_audio(audio.Default, loop=False)
+    print(helper_path)
+    toast.add_actions(label="I'm Awake!", launch=helper_path)
     toast.show()
+
+
 
 # ------------------- Wait Until Time ------------------- #
 def wait_until_time(target_str):
@@ -60,29 +74,36 @@ def wait_until_time(target_str):
             return
         time.sleep(20)
 
+
+
 # ------------------- Monitoring Thread ------------------- #
 def monitor_loop():
-    global CLICKED_FLAG
     config = load_config()
-    wait_until_time(config["start_time"])
+    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    #wait_until_time(config["start_time"])
 
     while not STOP_FLAG:
-        CLICKED_FLAG = False
+        # Remove old click flag if it exists
+        if os.path.exists("click.flag"):
+            os.remove("click.flag")
+
         send_notification()
-        print("Notification sent. Waiting for tray confirmation...")
+        print("Notification sent. Waiting for user...")
 
         for _ in range(config["notification_duration"]):
-            if CLICKED_FLAG or STOP_FLAG:
+            if os.path.exists("click.flag") or CLICKED_FLAG or STOP_FLAG:
                 break
             time.sleep(1)
 
-        if not CLICKED_FLAG and not STOP_FLAG:
+        if not os.path.exists("click.flag") and not CLICKED_FLAG and not STOP_FLAG:
             print("No response. Shutting down.")
-            os.system("shutdown /s /t 1")
+            os.system("shutdown /s /t 15")
             break
 
         print(f"User confirmed. Sleeping for {config['notification_interval']} seconds.")
         time.sleep(config["notification_interval"])
+
+
 
 # ------------------- Tray Menu Handlers ------------------- #
 def on_awake_clicked(icon, item):
@@ -128,6 +149,8 @@ def open_settings(icon=None, item=None):
     tk.Button(settings_window, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
 
     settings_window.mainloop()
+
+
 
 # ------------------- Run Tray App ------------------- #
 def run_tray():
