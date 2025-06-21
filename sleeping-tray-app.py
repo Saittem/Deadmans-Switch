@@ -3,6 +3,7 @@ import json
 import time
 import threading
 from datetime import datetime
+from datetime import timedelta
 import tkinter as tk
 from tkinter import messagebox
 from pystray import Icon, MenuItem, Menu
@@ -64,7 +65,8 @@ def wait_until_time(target_str):
 def monitor_loop():
     global CLICKED_FLAG
     config = load_config()
-    wait_until_time(config["start_time"])
+    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    #wait_until_time(config["start_time"])
 
     while not STOP_FLAG:
         CLICKED_FLAG = False
