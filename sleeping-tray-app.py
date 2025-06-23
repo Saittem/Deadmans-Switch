@@ -50,8 +50,8 @@ def create_icon_image():
 
 # ------------------- Notification ------------------- #
 def send_notification():
-    helper_path = os.path.abspath("awaken.exe")
-    toast = Notification(app_id="Wake Check",
+    helper_path = os.path.abspath("clicked.exe")
+    toast = Notification(app_id="Dead man's switch",
                          title="Are you awake?",
                          msg="Click the button or your PC will shut down in 1 minute.",
                          duration="long")
