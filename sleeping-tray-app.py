@@ -10,6 +10,8 @@ from pystray import Icon, MenuItem, Menu
 from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
 from http.server import BaseHTTPRequestHandler, HTTPServer
+import sys
+import win32com.client
 
 
 CONFIG_PATH = "config.json"
@@ -67,7 +69,7 @@ def log_click_time(source="notification"):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     log_message = f"[{timestamp}] User clicked 'I'm Awake' via {source}.\n"
     try:
-        with open(LOG_FILE_PATH, "a") as f: # "a" for append mode
+        with open(LOG_FILE_PATH, "a") as f:
             f.write(log_message)
         print(f"Logged: {log_message.strip()}")
     except Exception as e:
@@ -104,7 +106,7 @@ class ClickHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'text/html')
             self.end_headers()
             
-            # HTML, CSS and JavaScript for the response page
+            # HTML, CSS and JavaScript
             response_html = """
             <!DOCTYPE html>
             <html>
@@ -132,7 +134,7 @@ class ClickHandler(BaseHTTPRequestHandler):
             """
             self.wfile.write(response_html.encode('utf-8'))
             print("HTTP server: CLICKED_FLAG set to True. Sent HTML with close attempt.")
-            log_click_time(source="notification") # Log that the notification was clicked
+            log_click_time(source="notification") # Logs that the notification was clicked
         else:
             # For any other path, send a "No Content" response
             self.send_response(204)
@@ -153,15 +155,15 @@ def start_and_monitor_http_server(timeout_seconds):
         bool: True if the user clicked the notification, False if it timed out or was stopped.
     """
     global CLICKED_FLAG 
-    # Reset CLICKED_FLAG at the beginning of this monitoring phase
+    # Resets CLICKED_FLAG at the beginning of this monitoring phase
     CLICKED_FLAG = False 
 
     server_address = ("localhost", 8888)
-    httpd = None # Initialize httpd to None
+    httpd = None # Initializes httpd to None
 
     try:
         httpd = HTTPServer(server_address, ClickHandler)
-        # Set a timeout for handle_request() to make the loop non-blocking.
+        # Sets a timeout for handle_request() to make the loop non-blocking.
         # It allows the loop to periodically check STOP_FLAG and the overall timeout.
         httpd.timeout = 1  
         print(f"HTTP server temporarily started on http://{server_address[0]}:{server_address[1]} for {timeout_seconds}s.")
@@ -172,16 +174,16 @@ def start_and_monitor_http_server(timeout_seconds):
             # If it times out, the loop continues to check flags and remaining time.
             httpd.handle_request()
             
-        return CLICKED_FLAG # Return the final state of CLICKED_FLAG
+        return CLICKED_FLAG # Returns the final state of CLICKED_FLAG
             
     except OSError as e:
         print(f"HTTP server error: {e}. Port 8888 might be in use. Cannot listen for click.")
-        return False # Indicate a failure to start/listen
+        return False # Indicates a failure to start/listen
     except Exception as e:
         print(f"An unexpected error occurred in HTTP server: {e}")
-        return False # Indicate an unexpected error during server operation
+        return False # Indicates an unexpected error during server operation
     finally:
-        # Ensure the server is closed and the port is released when the function exits
+        # Ensures the server is closed and the port is released when the function exits
         if httpd:
             httpd.server_close()
             print("HTTP server stopped for this cycle.")
@@ -217,7 +219,7 @@ def wait_until_time(target_str):
     print(f"Waiting until {target_str} to start monitoring...")
     while True:
         now = datetime.now()
-        # Create a datetime object for the target time on the current day
+        # Creates a datetime object for the target time on the current day
         target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
         
         # If the target time has already passed today, set it for tomorrow
@@ -233,7 +235,7 @@ def wait_until_time(target_str):
             print("Wait until time interrupted by STOP_FLAG.")
             return
 
-        # Calculate time remaining and sleep in chunks to remain responsive to STOP_FLAG
+        # Calculates time remaining and sleep in chunks to remain responsive to STOP_FLAG
         time_to_sleep = (target_time - now).total_seconds()
         if time_to_sleep > 0:
             # Sleep for a maximum of 20 seconds, or the remaining time if less
@@ -255,11 +257,10 @@ def monitor_loop():
     4. If a click is received, it waits for a defined interval before repeating the cycle.
     The loop terminates if the global STOP_FLAG is set.
     """
-    global CLICKED_FLAG # Declare intent to read this global flag
+    global CLICKED_FLAG # Declares intent to read this global flag
     config = load_config()
     
-    # Wait until the configured start time (or 1 minute from now for testing)
-    # The line below is for testing purposes, uncomment config["start_time"] for production use.
+    # The line below is for testing purposes
     # wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
     wait_until_time(config["start_time"])
 
@@ -267,7 +268,7 @@ def monitor_loop():
     while not STOP_FLAG:
         send_notification()
         
-        # Start the HTTP server to listen for a click for the notification's duration.
+        # Starts the HTTP server to listen for a click for the notification's duration.
         # The function returns True if the user clicked, False otherwise.
         user_responded = start_and_monitor_http_server(config["notification_duration"]) 
 
@@ -276,9 +277,8 @@ def monitor_loop():
         if not user_responded and not STOP_FLAG:
             print("No response within duration. Shutting down.")
             # This line will initiate system shutdown with a 15-second delay.
-            # Keep it commented during testing to avoid actual shutdowns.
             os.system("shutdown /s /t 15") 
-            break # Exit the monitoring loop as shutdown is initiated
+            break # Exits the monitoring loop as shutdown is initiated
         
         # If STOP_FLAG was set during the monitoring/waiting phase, exit the loop
         if STOP_FLAG:
@@ -304,8 +304,8 @@ def on_awake_clicked(icon, item):
     """
     global CLICKED_FLAG
     print("User clicked 'I'm Awake' from tray menu.")
-    CLICKED_FLAG = True # Manually set the flag
-    log_click_time(source="tray menu") # Log the manual click
+    CLICKED_FLAG = True # Manually sets the flag
+    log_click_time(source="tray menu") # Logs the manual click
 
 
 def on_exit(icon, item):
@@ -321,27 +321,68 @@ def on_exit(icon, item):
     """
     global STOP_FLAG
     
-    STOP_FLAG = True # Signal all threads to stop
+    STOP_FLAG = True # Signals all threads to stop
     print("Exit command received. Signaling threads to stop...")
 
     # The start_and_monitor_http_server function manages its own lifecycle.
     # If it's currently running, it will detect STOP_FLAG and exit gracefully.
     
-    icon.stop() # Stop the pystray icon's main loop
+    icon.stop() # Stops the pystray icon's main loop
     print("Tray icon stopped.")
+
+
+# ------------------- Startup Shortcut Function ------------------- #
+def create_startup_shortcut():
+    """
+    Creates a shortcut (.lnk file) to the application's executable in the
+    current user's Windows Startup folder.
+    """
+
+    try:
+        exe_path = sys.executable 
+        
+        # Gets the path to the current user's Startup folder
+        startup_folder = os.path.join(os.environ['APPDATA'], 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
+        
+        # Defines the path for the shortcut file
+        # Uses a consistent name for the shortcut for easy management
+        shortcut_name = "Dead Man's Switch.lnk"
+        shortcut_path = os.path.join(startup_folder, shortcut_name)
+
+        # Creates the shell object to create shortcuts
+        shell = win32com.client.Dispatch("WScript.Shell")
+        shortcut = shell.CreateShortCut(shortcut_path)
+        shortcut.TargetPath = exe_path
+        
+        # Sets description and icon location for the shortcut
+        shortcut.Description = "Runs Dead Man's Switch on Windows startup."
+        # shortcut.IconLocation = os.path.join(os.path.dirname(exe_path), "your_app_icon.ico")
+        
+        shortcut.Save() # Saves the shortcut file
+
+        messagebox.showinfo("Startup Shortcut", 
+                            f"Shortcut to '{os.path.basename(exe_path)}' created successfully in your Startup folder:\n{startup_folder}\n\n"
+                            "The app will now run automatically when you log in.")
+        print(f"Startup shortcut created at: {shortcut_path}")
+
+    except Exception as e:
+        messagebox.showerror("Startup Shortcut Error", 
+                             f"Failed to create startup shortcut.\n\nError: {e}\n\n"
+                             "This feature requires the 'pywin32' library and administrator privileges if trying to install for all users (which this version doesn't do). "
+                             "Please ensure the app is run as an executable for this feature to point correctly.")
+        print(f"Error creating startup shortcut: {e}")
 
 
 def open_settings(icon=None, item=None):
     """
     Opens a Tkinter window allowing the user to configure application settings
-    (start time, notification duration, and interval).
-    The settings can be saved to the config.json file.
+    (start time, notification duration, and interval) and manage startup settings.
     
     Args:
         icon: The pystray Icon object (optional, not directly used in this function).
         item: The MenuItem object that was clicked (optional, not directly used in this function).
     """
-    config = load_config() # Load current settings
+    config = load_config() # Loads current settings
 
     def save():
         """
@@ -349,22 +390,22 @@ def open_settings(icon=None, item=None):
         It validates input, saves the settings, and closes the settings window.
         """
         try:
-            # Validate input formats
+            # Validates input formats
             time.strptime(start_time_entry.get(), "%H:%M") # Checks HH:MM format
             int(duration_entry.get()) # Checks if it's an integer
             int(interval_entry.get()) # Checks if it's an integer
 
             save_config(start_time_entry.get(), duration_entry.get(), interval_entry.get())
             messagebox.showinfo("Saved", "Settings saved.")
-            settings_window.destroy() # Close the settings window
+            settings_window.destroy() # Closes the settings window
         except ValueError:
             messagebox.showerror("Error", "Invalid input. Please check time format (HH:MM) and ensure duration/interval are numbers.")
 
-    # Create the settings Tkinter window
+    # Creates the settings Tkinter window
     settings_window = tk.Tk()
     settings_window.title("Wake Check Settings")
 
-    # Create and place labels and entry fields for settings
+    # Creates and places labels and entry fields for settings
     tk.Label(settings_window, text="Start Time (HH:MM 24hr):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
     start_time_entry = tk.Entry(settings_window)
     start_time_entry.insert(0, config["start_time"]) # Populate with current setting
@@ -382,11 +423,15 @@ def open_settings(icon=None, item=None):
 
     # Save button
     tk.Button(settings_window, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
+    
+    # Button for creating startup shortcut
+    tk.Button(settings_window, text="Add to Windows Startup", command=create_startup_shortcut).grid(row=4, columnspan=2, pady=5)
 
-    # Configure column to expand horizontally with the window
+
+    # Configures columns to expand horizontally with the window
     settings_window.grid_columnconfigure(1, weight=1)
 
-    settings_window.mainloop() # Start the Tkinter event loop for the settings window
+    settings_window.mainloop() # Starts the Tkinter event loop for the settings window
 
 
 # ------------------- Run Tray App ------------------- #
@@ -397,12 +442,12 @@ def run_tray():
     creates and runs the system tray icon, which provides menu options
     like "I'm Awake", "Settings", and "Exit".
     """
-    # Start the monitoring loop in a separate daemon thread.
+    # Starts the monitoring loop in a separate daemon thread.
     # A daemon thread will automatically terminate when the main program exits.
     monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
     monitor_thread.start()
 
-    # Initialize and run the system tray icon
+    # Initializes and runs the system tray icon
     icon = Icon("WakeChecker")
     icon.icon = create_icon_image() # Set the custom icon image
     icon.menu = Menu(
@@ -411,14 +456,14 @@ def run_tray():
         MenuItem("Exit", on_exit)                 # Menu item to exit the application gracefully
     )
     print("Tray icon running.")
-    # Run the pystray icon; this blocks the main thread until icon.stop() is called
+    # Runs the pystray icon
     icon.run() 
 
 if __name__ == "__main__":
-    # Ensure global flags are in a clean state when the script starts
+    # Ensures global flags are in a clean state when the script starts
     CLICKED_FLAG = False
     STOP_FLAG = False
     
-    # Start the main application by running the system tray icon setup
+    # Starts the main application by running the system tray icon setup
     run_tray()
     print("Application finished.")
