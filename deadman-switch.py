@@ -19,8 +19,11 @@ LOG_FILE_PATH = "wake_log.txt"
 CLICKED_FLAG = False
 STOP_FLAG = False
 
+# Defines the path to your icon file
+# Ensures 'icon.ico' is in the same directory as your script/executable
+ICON_PATH = "icon.ico"
 
-app_id = "Dead man's switch"
+app_id = "Deadman's switch"
 registry = Registry(app_id=app_id, script_path=__file__)
 notifier = Notifier(registry)
 
@@ -78,15 +81,26 @@ def log_click_time(source="notification"):
 
 # ------------------- Tray Image ------------------- #
 def create_icon_image():
-    """
-    Creates a simple blue circular image with a white ellipse in the center
-    to be used as the system tray icon.
-    Returns a PIL Image object.
-    """
-    image = Image.new("RGB", (64, 64), "blue")
-    draw = ImageDraw.Draw(image)
-    draw.ellipse((16, 16, 48, 48), fill="white")
-    return image
+    try:
+        # Loads the icon from the specified path
+        icon_image = Image.open(ICON_PATH)
+        # Ensures it's in RGBA format for pystray compatibility
+        icon_image = icon_image.convert("RGBA")
+        return icon_image
+    except FileNotFoundError:
+        print(f"Warning: icon.ico not found at {ICON_PATH}. Using default generated icon.")
+        # Fallback to the previous generated icon if icon.ico is not found
+        image = Image.new("RGB", (64, 64), "blue")
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((16, 16, 48, 48), fill="white")
+        return image
+    except Exception as e:
+        print(f"Error loading icon.ico: {e}. Using default generated icon.")
+        image = Image.new("RGB", (64, 64), "blue")
+        draw = ImageDraw.Draw(image)
+        draw.ellipse((16, 16, 48, 48), fill="white")
+        return image
+
 
 
 # ------------------- Notification and HTTP Server ------------------- #
@@ -346,7 +360,7 @@ def create_startup_shortcut():
         
         # Defines the path for the shortcut file
         # Uses a consistent name for the shortcut for easy management
-        shortcut_name = "Dead Man's Switch.lnk"
+        shortcut_name = "Deadman's Switch.lnk"
         shortcut_path = os.path.join(startup_folder, shortcut_name)
 
         # Creates the shell object to create shortcuts
@@ -355,8 +369,8 @@ def create_startup_shortcut():
         shortcut.TargetPath = exe_path
         
         # Sets description and icon location for the shortcut
-        shortcut.Description = "Runs Dead Man's Switch on Windows startup."
-        # shortcut.IconLocation = os.path.join(os.path.dirname(exe_path), "your_app_icon.ico")
+        shortcut.Description = "Runs Deadman's Switch on Windows startup."
+        shortcut.IconLocation = os.path.join(os.path.dirname(exe_path), ICON_PATH)
         
         shortcut.Save() # Saves the shortcut file
 
@@ -404,6 +418,15 @@ def open_settings(icon=None, item=None):
     # Creates the settings Tkinter window
     settings_window = tk.Tk()
     settings_window.title("Wake Check Settings")
+
+    # Sets the icon for the Tkinter settings window
+    try:
+        if os.path.exists(ICON_PATH):
+            settings_window.iconbitmap(ICON_PATH)
+        else:
+            print(f"Warning: {ICON_PATH} not found for settings window icon.")
+    except Exception as e:
+        print(f"Error setting Tkinter icon: {e}")
 
     # Creates and places labels and entry fields for settings
     tk.Label(settings_window, text="Start Time (HH:MM 24hr):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
