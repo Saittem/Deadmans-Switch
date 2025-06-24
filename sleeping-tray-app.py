@@ -9,13 +9,14 @@ from tkinter import messagebox
 from pystray import Icon, MenuItem, Menu
 from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
-import subprocess
-
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 
 CONFIG_PATH = "config.json"
+LOG_FILE_PATH = "wake_log.txt"
 CLICKED_FLAG = False
 STOP_FLAG = False
+
 
 app_id = "Dead man's switch"
 registry = Registry(app_id=app_id, script_path=__file__)
@@ -24,6 +25,13 @@ notifier = Notifier(registry)
 
 # ------------------- Config Functions ------------------- #
 def load_config():
+    """   
+    Loads configuration settings from a JSON file (config.json).
+    If the file does not exist, it creates it with default settings.
+    Default settings include a start time, notification duration, and interval.
+    Returns the loaded (or default) configuration as a dictionary.
+    """
+
     default_config = {"start_time": "02:00", "notification_duration": 60, "notification_interval": 600}
     if not os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "w") as f:
@@ -33,6 +41,11 @@ def load_config():
         return json.load(f)
 
 def save_config(start_time, duration, interval):
+    """
+    Saves the provided configuration settings (start time, notification duration, and interval)
+    to the config.json file in JSON format.
+    """
+
     config = {
         "start_time": start_time,
         "notification_duration": int(duration),
@@ -42,159 +55,370 @@ def save_config(start_time, duration, interval):
         json.dump(config, f)
 
 
+# ------------------- Logging Function ------------------- #
+def log_click_time(source="notification"):
+    """
+    Logs the current timestamp to the log file (wake_log.txt), indicating
+    when the user confirmed being "Awake".
+    A string indicating how the click was registered (e.g., "notification" 
+    for a click on the toast notification, or with tray menu).
+    """
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_message = f"[{timestamp}] User clicked 'I'm Awake' via {source}.\n"
+    try:
+        with open(LOG_FILE_PATH, "a") as f: # "a" for append mode
+            f.write(log_message)
+        print(f"Logged: {log_message.strip()}")
+    except Exception as e:
+        print(f"Error writing to log file: {e}")
+
 
 # ------------------- Tray Image ------------------- #
 def create_icon_image():
+    """
+    Creates a simple blue circular image with a white ellipse in the center
+    to be used as the system tray icon.
+    Returns a PIL Image object.
+    """
     image = Image.new("RGB", (64, 64), "blue")
     draw = ImageDraw.Draw(image)
     draw.ellipse((16, 16, 48, 48), fill="white")
     return image
 
 
+# ------------------- Notification and HTTP Server ------------------- #
 
-# ------------------- Notification ------------------- #
+class ClickHandler(BaseHTTPRequestHandler):
+    """
+    A custom HTTP request handler for the local web server.
+    It processes GET requests. When the '/click' path is accessed,
+    it sets the global CLICKED_FLAG to True, sends an HTML response
+    that attempts to close the browser tab, and logs the event.
+    """
+    def do_GET(self):
+        global CLICKED_FLAG
+        if self.path == "/click":
+            CLICKED_FLAG = True
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html')
+            self.end_headers()
+            
+            # HTML, CSS and JavaScript for the response page
+            response_html = """
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Action Confirmed</title>
+                <script type="text/javascript">
+                    // Attempt to close the window after a short delay
+                    // This may not work in all browsers due to security restrictions.
+                    setTimeout(function() {
+                        window.close();
+                    }, 500); // 500ms delay
+                </script>
+                <style>
+                    body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+                    h1 { color: #4CAF50; }
+                    p { color: #555; }
+                </style>
+            </head>
+            <body>
+                <h1>Action Confirmed!</h1>
+                <p>Thank you for responding.</p>
+                <p>This tab may close automatically. If not, you can close it manually.</p>
+            </body>
+            </html>
+            """
+            self.wfile.write(response_html.encode('utf-8'))
+            print("HTTP server: CLICKED_FLAG set to True. Sent HTML with close attempt.")
+            log_click_time(source="notification") # Log that the notification was clicked
+        else:
+            # For any other path, send a "No Content" response
+            self.send_response(204)
+            self.end_headers()
+            print(f"HTTP server: Unhandled path '{self.path}'")
 
 
-@notifier.register_callback
-def open_notepad_callback():
-    print("DEBUG: Callback function 'open_notepad_callback' triggered.")
+def start_and_monitor_http_server(timeout_seconds):
+    """
+    Starts a temporary local HTTP server to listen for a click from the notification.
+    The server runs for a specified `timeout_seconds` duration or until a click is received,
+    then it shuts itself down.
+
+    Args:
+        timeout_seconds (int): The maximum duration (in seconds) to wait for a click.
+
+    Returns:
+        bool: True if the user clicked the notification, False if it timed out or was stopped.
+    """
+    global CLICKED_FLAG 
+    # Reset CLICKED_FLAG at the beginning of this monitoring phase
+    CLICKED_FLAG = False 
+
+    server_address = ("localhost", 8888)
+    httpd = None # Initialize httpd to None
+
     try:
-        notepad_path = r"C:\Windows\System32\notepad.exe"
-        print(f"DEBUG: Attempting to launch Notepad from: {notepad_path}")
-        subprocess.Popen([notepad_path])
-        print("DEBUG: Notepad launch command issued.")
-    except FileNotFoundError:
-        print(f"ERROR: Notepad not found at {notepad_path}. Please check the path.")
-    except Exception as e:
-        print(f"ERROR: An unhandled error occurred while trying to open Notepad: {e}")
+        httpd = HTTPServer(server_address, ClickHandler)
+        # Set a timeout for handle_request() to make the loop non-blocking.
+        # It allows the loop to periodically check STOP_FLAG and the overall timeout.
+        httpd.timeout = 1  
+        print(f"HTTP server temporarily started on http://{server_address[0]}:{server_address[1]} for {timeout_seconds}s.")
 
+        start_time = time.time()
+        while not CLICKED_FLAG and not STOP_FLAG and (time.time() - start_time < timeout_seconds):
+            # handle_request() processes one request or times out (based on httpd.timeout).
+            # If it times out, the loop continues to check flags and remaining time.
+            httpd.handle_request()
+            
+        return CLICKED_FLAG # Return the final state of CLICKED_FLAG
+            
+    except OSError as e:
+        print(f"HTTP server error: {e}. Port 8888 might be in use. Cannot listen for click.")
+        return False # Indicate a failure to start/listen
+    except Exception as e:
+        print(f"An unexpected error occurred in HTTP server: {e}")
+        return False # Indicate an unexpected error during server operation
+    finally:
+        # Ensure the server is closed and the port is released when the function exits
+        if httpd:
+            httpd.server_close()
+            print("HTTP server stopped for this cycle.")
 
 
 def send_notification():
-    #notepad_path = r"C:\Windows\System32\notepad.exe" 
-    helper_path = os.path.join(os.getcwd(), "clicked.py")
+    """
+    Creates and displays a Windows toast notification with an "I'm Awake!" button.
+    The button's action is set to launch a local HTTP URL which will be handled
+    by the temporarily running HTTP server.
+    """
     toast = Notification(app_id=app_id,
                          title="Are you awake?",
                          msg="Click the button or your PC will shut down in 1 minute.",
                          duration="long")
     toast.set_audio(audio.Default, loop=False)
-    #print(helper_path)
-    #callback_url = notifier.callback_to_url(open_notepad_callback)
-    #print(f"DEBUG: Generated callback URL for button: {callback_url}")
-    toast.add_actions(label="I'm Awake!", launch=helper_path)
+    toast.add_actions(label="I'm Awake!", launch="http://localhost:8888/click")
     toast.show()
-
+    print("Notification shown. Waiting for user response via HTTP click.")
 
 
 # ------------------- Wait Until Time ------------------- #
 def wait_until_time(target_str):
+    """
+    Pauses the execution of the program until a specific target time (HH:MM) is reached.
+    If the target time has already passed for the current day, it waits until that time
+    on the next day. It continuously checks the STOP_FLAG to allow for early termination.
+
+    Args:
+        target_str (str): The target time in "HH:MM" 24-hour format (e.g., "02:00").
+    """
     target_hour, target_minute = map(int, target_str.split(":"))
     print(f"Waiting until {target_str} to start monitoring...")
     while True:
         now = datetime.now()
+        # Create a datetime object for the target time on the current day
+        target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+        
+        # If the target time has already passed today, set it for tomorrow
+        if now > target_time:
+            target_time += timedelta(days=1)
+            
+        # Check if the exact target minute has been reached
         if now.hour == target_hour and now.minute == target_minute:
-            break
+            break 
+            
+        # Check the global STOP_FLAG to allow the wait to be interrupted
         if STOP_FLAG:
+            print("Wait until time interrupted by STOP_FLAG.")
             return
-        time.sleep(20)
 
+        # Calculate time remaining and sleep in chunks to remain responsive to STOP_FLAG
+        time_to_sleep = (target_time - now).total_seconds()
+        if time_to_sleep > 0:
+            # Sleep for a maximum of 20 seconds, or the remaining time if less
+            sleep_chunk = min(time_to_sleep, 20) 
+            time.sleep(sleep_chunk)
+        else:
+            # If time is exactly now or slightly past due to execution delays, sleep briefly
+            time.sleep(1)
 
 
 # ------------------- Monitoring Thread ------------------- #
 def monitor_loop():
+    """
+    The main monitoring loop of the application.
+    It waits until the configured start time, then repeatedly:
+    1. Sends a notification.
+    2. Starts a temporary HTTP server to listen for a user click for a defined duration.
+    3. If no click is received within the duration, it initiates a system shutdown.
+    4. If a click is received, it waits for a defined interval before repeating the cycle.
+    The loop terminates if the global STOP_FLAG is set.
+    """
+    global CLICKED_FLAG # Declare intent to read this global flag
     config = load_config()
-    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
-    #wait_until_time(config["start_time"])
+    
+    # Wait until the configured start time (or 1 minute from now for testing)
+    # The line below is for testing purposes, uncomment config["start_time"] for production use.
+    # wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    wait_until_time(config["start_time"])
+
 
     while not STOP_FLAG:
-        # Remove old click flag if it exists
-        if os.path.exists("click.flag"):
-            os.remove("click.flag")
-
         send_notification()
-        print("Notification sent. Waiting for user...")
+        
+        # Start the HTTP server to listen for a click for the notification's duration.
+        # The function returns True if the user clicked, False otherwise.
+        user_responded = start_and_monitor_http_server(config["notification_duration"]) 
 
-        for _ in range(config["notification_duration"]):
-            if os.path.exists("click.flag") or CLICKED_FLAG or STOP_FLAG:
-                break
-            time.sleep(1)
-
-        if not os.path.exists("click.flag") and not CLICKED_FLAG and not STOP_FLAG:
-            print("No response. Shutting down.")
-            #os.system("shutdown /s /t 15")
+        # After start_and_monitor_http_server returns, the temporary HTTP server is shut down.
+        # Now, check if the user responded or if the application needs to stop.
+        if not user_responded and not STOP_FLAG:
+            print("No response within duration. Shutting down.")
+            # This line will initiate system shutdown with a 15-second delay.
+            # Keep it commented during testing to avoid actual shutdowns.
+            os.system("shutdown /s /t 15") 
+            break # Exit the monitoring loop as shutdown is initiated
+        
+        # If STOP_FLAG was set during the monitoring/waiting phase, exit the loop
+        if STOP_FLAG:
+            print("Monitoring loop exiting due to STOP_FLAG.")
             break
 
-        print(f"User confirmed. Sleeping for {config['notification_interval']} seconds.")
+        print(f"User confirmed. Sleeping for {config['notification_interval']} seconds before next check.")
         time.sleep(config["notification_interval"])
-
+    
+    print("Monitoring loop finished.")
 
 
 # ------------------- Tray Menu Handlers ------------------- #
 def on_awake_clicked(icon, item):
+    """
+    Handles the event when the "I'm Awake" item is clicked in the system tray menu.
+    It manually sets the global CLICKED_FLAG to True, mimicking a notification click,
+    and logs the event.
+    
+    Args:
+        icon: The pystray Icon object.
+        item: The MenuItem object that was clicked.
+    """
     global CLICKED_FLAG
-    print("User clicked 'I'm Awake'")
-    CLICKED_FLAG = True
+    print("User clicked 'I'm Awake' from tray menu.")
+    CLICKED_FLAG = True # Manually set the flag
+    log_click_time(source="tray menu") # Log the manual click
+
 
 def on_exit(icon, item):
+    """
+    Handles the event when the "Exit" item is clicked in the system tray menu.
+    It sets the global STOP_FLAG to True to signal all running threads (like monitor_loop
+    and the HTTP server if active) to terminate gracefully.
+    It then stops the system tray icon.
+    
+    Args:
+        icon: The pystray Icon object.
+        item: The MenuItem object that was clicked.
+    """
     global STOP_FLAG
-    STOP_FLAG = True
-    icon.stop()
-    print("Exiting...")
+    
+    STOP_FLAG = True # Signal all threads to stop
+    print("Exit command received. Signaling threads to stop...")
+
+    # The start_and_monitor_http_server function manages its own lifecycle.
+    # If it's currently running, it will detect STOP_FLAG and exit gracefully.
+    
+    icon.stop() # Stop the pystray icon's main loop
+    print("Tray icon stopped.")
+
 
 def open_settings(icon=None, item=None):
-    config = load_config()
+    """
+    Opens a Tkinter window allowing the user to configure application settings
+    (start time, notification duration, and interval).
+    The settings can be saved to the config.json file.
+    
+    Args:
+        icon: The pystray Icon object (optional, not directly used in this function).
+        item: The MenuItem object that was clicked (optional, not directly used in this function).
+    """
+    config = load_config() # Load current settings
 
     def save():
+        """
+        Internal function called when the "Save" button in the settings window is clicked.
+        It validates input, saves the settings, and closes the settings window.
+        """
         try:
+            # Validate input formats
+            time.strptime(start_time_entry.get(), "%H:%M") # Checks HH:MM format
+            int(duration_entry.get()) # Checks if it's an integer
+            int(interval_entry.get()) # Checks if it's an integer
+
             save_config(start_time_entry.get(), duration_entry.get(), interval_entry.get())
             messagebox.showinfo("Saved", "Settings saved.")
-            settings_window.destroy()
+            settings_window.destroy() # Close the settings window
         except ValueError:
-            messagebox.showerror("Error", "Invalid input.")
+            messagebox.showerror("Error", "Invalid input. Please check time format (HH:MM) and ensure duration/interval are numbers.")
 
+    # Create the settings Tkinter window
     settings_window = tk.Tk()
     settings_window.title("Wake Check Settings")
 
-    tk.Label(settings_window, text="Start Time (HH:MM 24hr):").grid(row=0, column=0)
+    # Create and place labels and entry fields for settings
+    tk.Label(settings_window, text="Start Time (HH:MM 24hr):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
     start_time_entry = tk.Entry(settings_window)
-    start_time_entry.insert(0, config["start_time"])
-    start_time_entry.grid(row=0, column=1)
+    start_time_entry.insert(0, config["start_time"]) # Populate with current setting
+    start_time_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
-    tk.Label(settings_window, text="Notification Duration (seconds):").grid(row=1, column=0)
+    tk.Label(settings_window, text="Notification Duration (seconds):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
     duration_entry = tk.Entry(settings_window)
     duration_entry.insert(0, str(config["notification_duration"]))
-    duration_entry.grid(row=1, column=1)
+    duration_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
-    tk.Label(settings_window, text="Interval After Click (seconds):").grid(row=2, column=0)
+    tk.Label(settings_window, text="Interval After Click (seconds):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
     interval_entry = tk.Entry(settings_window)
     interval_entry.insert(0, str(config["notification_interval"]))
-    interval_entry.grid(row=2, column=1)
+    interval_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
 
+    # Save button
     tk.Button(settings_window, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
 
-    settings_window.mainloop()
+    # Configure column to expand horizontally with the window
+    settings_window.grid_columnconfigure(1, weight=1)
 
+    settings_window.mainloop() # Start the Tkinter event loop for the settings window
 
 
 # ------------------- Run Tray App ------------------- #
 def run_tray():
-    icon = Icon("WakeChecker")
-    icon.icon = create_icon_image()
-    icon.menu = Menu(
-        MenuItem("I'm Awake", on_awake_clicked),
-        MenuItem("Settings", open_settings),
-        MenuItem("Exit", on_exit)
-    )
-
+    """
+    Initializes and runs the main application.
+    It starts the `monitor_loop` in a separate thread and then
+    creates and runs the system tray icon, which provides menu options
+    like "I'm Awake", "Settings", and "Exit".
+    """
+    # Start the monitoring loop in a separate daemon thread.
+    # A daemon thread will automatically terminate when the main program exits.
     monitor_thread = threading.Thread(target=monitor_loop, daemon=True)
     monitor_thread.start()
 
-    icon.run()
+    # Initialize and run the system tray icon
+    icon = Icon("WakeChecker")
+    icon.icon = create_icon_image() # Set the custom icon image
+    icon.menu = Menu(
+        MenuItem("I'm Awake", on_awake_clicked),  # Menu item to manually confirm awake status
+        MenuItem("Settings", open_settings),      # Menu item to open settings window
+        MenuItem("Exit", on_exit)                 # Menu item to exit the application gracefully
+    )
+    print("Tray icon running.")
+    # Run the pystray icon; this blocks the main thread until icon.stop() is called
+    icon.run() 
 
 if __name__ == "__main__":
-    print("DEBUG: Starting Notifier service...")
-    notifier.start() # Ensure this starts before any notification is sent
-    print("DEBUG: Notifier service started.")
+    # Ensure global flags are in a clean state when the script starts
+    CLICKED_FLAG = False
+    STOP_FLAG = False
     
-    print("DEBUG: Running tray application...")
-    run_tray() # This will block the main thread, but the notifier is already running in its own thread.
+    # Start the main application by running the system tray icon setup
+    run_tray()
+    print("Application finished.")
