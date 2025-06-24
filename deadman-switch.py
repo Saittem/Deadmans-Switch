@@ -346,6 +346,7 @@ def on_exit(icon, item):
 
 
 # ------------------- Startup Shortcut Function ------------------- #
+# !!! UNDER DEVELOPMENT !!!
 def create_startup_shortcut():
     """
     Creates a shortcut (.lnk file) to the application's executable in the
@@ -411,6 +412,10 @@ def open_settings(icon=None, item=None):
 
             save_config(start_time_entry.get(), duration_entry.get(), interval_entry.get())
             messagebox.showinfo("Saved", "Settings saved.")
+            
+            # Re-enable the startup button after a successful save
+            startup_button.config(state='normal')
+
             settings_window.destroy() # Closes the settings window
         except ValueError:
             messagebox.showerror("Error", "Invalid input. Please check time format (HH:MM) and ensure duration/interval are numbers.")
@@ -448,7 +453,12 @@ def open_settings(icon=None, item=None):
     tk.Button(settings_window, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
     
     # Button for creating startup shortcut
-    tk.Button(settings_window, text="Add to Windows Startup", command=create_startup_shortcut).grid(row=4, columnspan=2, pady=5)
+    # Assign the button to a variable so we can control its state
+    startup_button = tk.Button(settings_window, text="Add to Windows Startup", command=create_startup_shortcut)
+    startup_button.grid(row=4, columnspan=2, pady=5)
+    
+    # Disable the startup button initially
+    startup_button.config(state='disabled')
 
 
     # Configures columns to expand horizontally with the window
