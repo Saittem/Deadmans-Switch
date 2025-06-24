@@ -7,8 +7,9 @@ from datetime import timedelta
 import tkinter as tk
 from tkinter import messagebox
 from pystray import Icon, MenuItem, Menu
-from winotify import Notification, audio
+from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
+import subprocess
 
 
 
@@ -16,6 +17,9 @@ CONFIG_PATH = "config.json"
 CLICKED_FLAG = False
 STOP_FLAG = False
 
+app_id = "Dead man's switch"
+registry = Registry(app_id=app_id, script_path=__file__)
+notifier = Notifier(registry)
 
 
 # ------------------- Config Functions ------------------- #
@@ -49,14 +53,34 @@ def create_icon_image():
 
 
 # ------------------- Notification ------------------- #
+
+
+@notifier.register_callback
+def open_notepad_callback():
+    print("DEBUG: Callback function 'open_notepad_callback' triggered.")
+    try:
+        notepad_path = r"C:\Windows\System32\notepad.exe"
+        print(f"DEBUG: Attempting to launch Notepad from: {notepad_path}")
+        subprocess.Popen([notepad_path])
+        print("DEBUG: Notepad launch command issued.")
+    except FileNotFoundError:
+        print(f"ERROR: Notepad not found at {notepad_path}. Please check the path.")
+    except Exception as e:
+        print(f"ERROR: An unhandled error occurred while trying to open Notepad: {e}")
+
+
+
 def send_notification():
-    helper_path = os.path.abspath("clicked.exe")
-    toast = Notification(app_id="Dead man's switch",
+    #notepad_path = r"C:\Windows\System32\notepad.exe" 
+    helper_path = os.path.join(os.getcwd(), "clicked.py")
+    toast = Notification(app_id=app_id,
                          title="Are you awake?",
                          msg="Click the button or your PC will shut down in 1 minute.",
                          duration="long")
     toast.set_audio(audio.Default, loop=False)
-    print(helper_path)
+    #print(helper_path)
+    #callback_url = notifier.callback_to_url(open_notepad_callback)
+    #print(f"DEBUG: Generated callback URL for button: {callback_url}")
     toast.add_actions(label="I'm Awake!", launch=helper_path)
     toast.show()
 
@@ -97,7 +121,7 @@ def monitor_loop():
 
         if not os.path.exists("click.flag") and not CLICKED_FLAG and not STOP_FLAG:
             print("No response. Shutting down.")
-            os.system("shutdown /s /t 15")
+            #os.system("shutdown /s /t 15")
             break
 
         print(f"User confirmed. Sleeping for {config['notification_interval']} seconds.")
@@ -168,4 +192,9 @@ def run_tray():
     icon.run()
 
 if __name__ == "__main__":
-    run_tray()
+    print("DEBUG: Starting Notifier service...")
+    notifier.start() # Ensure this starts before any notification is sent
+    print("DEBUG: Notifier service started.")
+    
+    print("DEBUG: Running tray application...")
+    run_tray() # This will block the main thread, but the notifier is already running in its own thread.
