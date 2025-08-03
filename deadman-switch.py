@@ -14,6 +14,8 @@ import sys
 #import win32com.client
 
 
+
+
 CONFIG_PATH = "config.json"
 LOG_FILE_PATH = "wake_log.txt"
 CLICKED_FLAG = False
@@ -237,8 +239,8 @@ def wait_until_time(target_str):
         target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
         
         # If the target time has already passed today, set it for tomorrow
-        if now > target_time:
-            target_time += timedelta(days=1)
+        #if now > target_time:
+        #    target_time += timedelta(days=1)
             
         # Check if the exact target minute has been reached
         if now.hour == target_hour and now.minute == target_minute:
@@ -346,6 +348,7 @@ def on_exit(icon, item):
 
 
 # ------------------- Startup Shortcut Function ------------------- #
+# !!! UNDER DEVELOPMENT !!!
 def create_startup_shortcut():
     """
     Creates a shortcut (.lnk file) to the application's executable in the
@@ -386,6 +389,12 @@ def create_startup_shortcut():
                              "Please ensure the app is run as an executable for this feature to point correctly.")
         print(f"Error creating startup shortcut: {e}")
 
+def restart_monitor_loop_after_delay():
+    global STOP_FLAG
+    time.sleep(1)  # Give the old thread time to stop
+    STOP_FLAG = False
+    threading.Thread(target=monitor_loop, daemon=True).start()
+
 
 def open_settings(icon=None, item=None):
     """
@@ -399,21 +408,41 @@ def open_settings(icon=None, item=None):
     config = load_config() # Loads current settings
 
     def save():
-        """
-        Internal function called when the "Save" button in the settings window is clicked.
-        It validates input, saves the settings, and closes the settings window.
-        """
+        global STOP_FLAG
         try:
-            # Validates input formats
-            time.strptime(start_time_entry.get(), "%H:%M") # Checks HH:MM format
-            int(duration_entry.get()) # Checks if it's an integer
-            int(interval_entry.get()) # Checks if it's an integer
+            # Validates inputs
+            time.strptime(start_time_entry.get(), "%H:%M")
+            new_duration = int(duration_entry.get())
+            new_interval = int(interval_entry.get())
+            new_start_time = start_time_entry.get()
 
-            save_config(start_time_entry.get(), duration_entry.get(), interval_entry.get())
-            messagebox.showinfo("Saved", "Settings saved.")
-            settings_window.destroy() # Closes the settings window
+            # Loads old config
+            old_config = load_config()
+
+            # Checks if any setting changed
+            if (old_config["start_time"] != new_start_time or
+                old_config["notification_duration"] != new_duration or
+                old_config["notification_interval"] != new_interval):
+
+                print("Settings changed. Saving and restarting monitoring loop...")
+
+                # Saves new settings
+                save_config(new_start_time, new_duration, new_interval)
+
+                # Restarts monitor loop
+                STOP_FLAG = True  # Tell the old monitor loop to stop
+                settings_window.destroy()
+
+                # Starts a new thread after a small delay to give the old one time to shut down
+                threading.Thread(target=restart_monitor_loop_after_delay, daemon=True).start()
+
+            else:
+                print("No changes detected. Closing settings.")
+                settings_window.destroy()
+
         except ValueError:
             messagebox.showerror("Error", "Invalid input. Please check time format (HH:MM) and ensure duration/interval are numbers.")
+
 
     # Creates the settings Tkinter window
     settings_window = tk.Tk()
@@ -448,7 +477,11 @@ def open_settings(icon=None, item=None):
     tk.Button(settings_window, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
     
     # Button for creating startup shortcut
-    tk.Button(settings_window, text="Add to Windows Startup", command=create_startup_shortcut).grid(row=4, columnspan=2, pady=5)
+    # Assign the button to a variable so we can control its state
+    startup_button = tk.Button(settings_window, text="Add to Windows Startup", command=create_startup_shortcut)
+    startup_button.grid(row=4, columnspan=2, pady=5)
+    
+    startup_button.config(state='disabled')
 
 
     # Configures columns to expand horizontally with the window
@@ -482,6 +515,7 @@ def run_tray():
     # Runs the pystray icon
     icon.run() 
 
+# ------------------- Main ------------------- #
 if __name__ == "__main__":
     # Ensures global flags are in a clean state when the script starts
     CLICKED_FLAG = False
