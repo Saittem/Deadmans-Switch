@@ -6,7 +6,7 @@ from datetime import datetime
 from datetime import timedelta
 import tkinter as tk
 from tkinter import messagebox
-#from pystray import Icon, MenuItem, Menu
+from pystray import Icon, MenuItem, Menu
 #from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -105,120 +105,23 @@ def create_icon_image():
 
 
 
-# ------------------- Notification and HTTP Server ------------------- #
-
-class ClickHandler(BaseHTTPRequestHandler):
-    """
-    A custom HTTP request handler for the local web server.
-    It processes GET requests. When the '/click' path is accessed,
-    it sets the global CLICKED_FLAG to True, sends an HTML response
-    that attempts to close the browser tab, and logs the event.
-    """
-    def do_GET(self):
-        global CLICKED_FLAG
-        if self.path == "/click":
-            CLICKED_FLAG = True
-            self.send_response(200)
-            self.send_header('Content-type', 'text/html')
-            self.end_headers()
-            
-            # HTML, CSS and JavaScript
-            response_html = """
-            <!DOCTYPE html>
-            <html>
-            <head>
-                <title>Action Confirmed</title>
-                <script type="text/javascript">
-                    // Attempt to close the window after a short delay
-                    // This may not work in all browsers due to security restrictions.
-                    setTimeout(function() {
-                        window.close();
-                    }, 500); // 500ms delay
-                </script>
-                <style>
-                    body { font-family: sans-serif; text-align: center; margin-top: 50px; }
-                    h1 { color: #4CAF50; }
-                    p { color: #555; }
-                </style>
-            </head>
-            <body>
-                <h1>Action Confirmed!</h1>
-                <p>Thank you for responding.</p>
-                <p>This tab may close automatically. If not, you can close it manually.</p>
-            </body>
-            </html>
-            """
-            self.wfile.write(response_html.encode('utf-8'))
-            print("HTTP server: CLICKED_FLAG set to True. Sent HTML with close attempt.")
-            log_click_time(source="notification") # Logs that the notification was clicked
-        else:
-            # For any other path, send a "No Content" response
-            self.send_response(204)
-            self.end_headers()
-            print(f"HTTP server: Unhandled path '{self.path}'")
-
-
-def start_and_monitor_http_server(timeout_seconds):
-    """
-    Starts a temporary local HTTP server to listen for a click from the notification.
-    The server runs for a specified `timeout_seconds` duration or until a click is received,
-    then it shuts itself down.
-
-    Args:
-        timeout_seconds (int): The maximum duration (in seconds) to wait for a click.
-
-    Returns:
-        bool: True if the user clicked the notification, False if it timed out or was stopped.
-    """
-    global CLICKED_FLAG 
-    # Resets CLICKED_FLAG at the beginning of this monitoring phase
-    CLICKED_FLAG = False 
-
-    server_address = ("localhost", 8888)
-    httpd = None # Initializes httpd to None
-
-    try:
-        httpd = HTTPServer(server_address, ClickHandler)
-        # Sets a timeout for handle_request() to make the loop non-blocking.
-        # It allows the loop to periodically check STOP_FLAG and the overall timeout.
-        httpd.timeout = 1  
-        print(f"HTTP server temporarily started on http://{server_address[0]}:{server_address[1]} for {timeout_seconds}s.")
-
-        start_time = time.time()
-        while not CLICKED_FLAG and not STOP_FLAG and (time.time() - start_time < timeout_seconds):
-            # handle_request() processes one request or times out (based on httpd.timeout).
-            # If it times out, the loop continues to check flags and remaining time.
-            httpd.handle_request()
-            
-        return CLICKED_FLAG # Returns the final state of CLICKED_FLAG
-            
-    except OSError as e:
-        print(f"HTTP server error: {e}. Port 8888 might be in use. Cannot listen for click.")
-        return False # Indicates a failure to start/listen
-    except Exception as e:
-        print(f"An unexpected error occurred in HTTP server: {e}")
-        return False # Indicates an unexpected error during server operation
-    finally:
-        # Ensures the server is closed and the port is released when the function exits
-        if httpd:
-            httpd.server_close()
-            print("HTTP server stopped for this cycle.")
-
+# ------------------- Notification ------------------- #
 
 def send_notification():
     """
-    Creates and displays a Windows toast notification with an "I'm Awake!" button.
-    The button's action is set to launch a local HTTP URL which will be handled
-    by the temporarily running HTTP server.
+    Creates and displays a simple GUI window with a button to confirm being "Awake".
+    The window is set to close automatically after 1 minute if the button is not clicked.
     """
-    toast = Notification(app_id=app_id,
-                         title="Are you awake?",
-                         msg="Click the button or your PC will shut down in 1 minute.",
-                         duration="long")
-    toast.set_audio(audio.Default, loop=False)
-    toast.add_actions(label="I'm Awake!", launch="http://localhost:8888/click")
-    toast.show()
-    print("Notification shown. Waiting for user response via HTTP click.")
+    root = tk.Tk()
+    root.title("Are you awake?")
+    root.geometry("300x100")
+    label = tk.Label(root, text="Click the button or your PC will shut down in 1 minute.")
+    label.pack()
+    button = tk.Button(root, text="I'm Awake!", command=lambda: (root.destroy(), set_clicked_flag()))
+    button.pack()
+    root.after(60000, root.destroy)  # Destroy the window after 1 minute
+    root.mainloop()
+    print("Notification shown. Waiting for user response via window click.")
 
 
 # ------------------- Wait Until Time ------------------- #
