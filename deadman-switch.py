@@ -6,12 +6,12 @@ from datetime import datetime
 from datetime import timedelta
 import tkinter as tk
 from tkinter import messagebox
-from pystray import Icon, MenuItem, Menu
-from winotify import Notification, Notifier, Registry, audio
+#from pystray import Icon, MenuItem, Menu
+#from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import sys
-import win32com.client
+#import win32com.client
 
 
 CONFIG_PATH = "config.json"
