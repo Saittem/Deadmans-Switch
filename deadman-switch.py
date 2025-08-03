@@ -26,8 +26,6 @@ STOP_FLAG = False
 ICON_PATH = "icon.ico"
 
 app_id = "Deadman's switch"
-registry = Registry(app_id=app_id, script_path=__file__)
-notifier = Notifier(registry)
 
 
 # ------------------- Config Functions ------------------- #
@@ -140,10 +138,19 @@ def wait_until_time(target_str):
         now = datetime.now()
         # Creates a datetime object for the target time on the current day
         target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
+<<<<<<< Updated upstream
         
         # If the target time has already passed today, set it for tomorrow
         #if now > target_time:
         #    target_time += timedelta(days=1)
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
+=======
+>>>>>>> Stashed changes
             
         # Check if the exact target minute has been reached
         if now.hour == target_hour and now.minute == target_minute:
@@ -186,10 +193,6 @@ def monitor_loop():
 
     while not STOP_FLAG:
         send_notification()
-        
-        # Starts the HTTP server to listen for a click for the notification's duration.
-        # The function returns True if the user clicked, False otherwise.
-        user_responded = start_and_monitor_http_server(config["notification_duration"]) 
 
         # After start_and_monitor_http_server returns, the temporary HTTP server is shut down.
         # Now, check if the user responded or if the application needs to stop.
