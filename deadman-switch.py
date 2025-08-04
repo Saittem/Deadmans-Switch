@@ -50,16 +50,24 @@ def save_config(start_time, duration, interval):
         json.dump(config, f)
 
 def set_clicked_flag():
+    """Sets the global CLICKED_FLAG to True, mimicking a notification click."""
+
     global CLICKED_FLAG
     CLICKED_FLAG = True
+
+def center_window(window, window_width, window_height):
+    screen_width = window.winfo_screenwidth()
+    screen_height = window.winfo_screenheight()
+    x = (screen_width - window_width) // 2
+    y = (screen_height - window_height) // 2
+    window.geometry(f"+{x}+{y}")
 
 # ------------------- Logging Function ------------------- #
 def log_click_time(source="notification"):
     """
     Logs the current timestamp to the log file (wake_log.txt), indicating
     when the user confirmed being "Awake".
-    A string indicating how the click was registered (e.g., "notification" 
-    for a click on the toast notification, or with tray menu).
+    Types of sources include "notification" and "tray menu".
     """
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -105,10 +113,11 @@ def send_notification():
     """
     root = tk.Tk()
     root.title("Are you awake?")
+    center_window(root, 300, 100)
     root.geometry("300x100")
     label = tk.Label(root, text="Click the button or your PC will shut down in 1 minute.")
     label.pack()
-    button = tk.Button(root, text="I'm Awake!", command=lambda: (root.destroy(), set_clicked_flag()))
+    button = tk.Button(root, text="I'm Awake!", command=lambda: (root.destroy(), set_clicked_flag(), log_click_time(source="notification")))
     button.pack()
     root.after(60000, root.destroy)  # Destroy the window after 1 minute
     root.mainloop()
@@ -116,36 +125,36 @@ def send_notification():
 
 
 # ------------------- Wait Until Time ------------------- #
-def wait_until_time(target_time):
+def wait_until_time(target_time_str):
     """
-    Pauses the execution of the program until a specific target time (HH:MM) is reached.
-    It continuously checks the STOP_FLAG to allow for early termination.
+    Pauses the execution until the specified target time (HH:MM).
+    Handles cases where the target time crosses midnight.
     """
-    target_hour, target_minute = map(int, target_time.split(":"))
-    print(f"Waiting until {target_time} to start monitoring...")
+    target_hour, target_minute = map(int, target_time_str.split(":"))
+    now = datetime.now()
+    
+    # Create a datetime for today at the target time
+    target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
+    
+    # If the target time has already passed, move it to the next day
+    if target_time <= now:
+        target_time += timedelta(days=1)
+
+    print(f"Waiting until {target_time.strftime('%Y-%m-%d %H:%M:%S')} to start monitoring...")
+
     while True:
         now = datetime.now()
-        # Creates a datetime object for the target time on the current day
-        target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
-            
-        # Check if the exact target minute has been reached
-        if now.hour == target_hour and now.minute == target_minute:
-            break 
-            
-        # Check the global STOP_FLAG to allow the wait to be interrupted
+        
+        if now >= target_time:
+            break
+
         if STOP_FLAG:
             print("Wait until time interrupted by STOP_FLAG.")
             return
 
-        # Calculates time remaining and sleep in chunks to remain responsive to STOP_FLAG
         time_to_sleep = (target_time - now).total_seconds()
-        if time_to_sleep > 0:
-            # Sleep for a maximum of 20 seconds, or the remaining time if less
-            sleep_chunk = min(time_to_sleep, 20) 
-            time.sleep(sleep_chunk)
-        else:
-            # If time is exactly now or slightly past due to execution delays, sleep briefly
-            time.sleep(1)
+        sleep_chunk = min(time_to_sleep, 20)
+        time.sleep(sleep_chunk)
 
 
 # ------------------- Monitoring Thread ------------------- #
@@ -225,7 +234,7 @@ def restart_monitor_loop_after_delay():
 def open_settings():
     """
     Opens a Tkinter window allowing the user to configure application settings
-    (start time, notification duration, and interval) and manage startup settings.
+    (start time, notification duration, and interval).
     """
     config = load_config() # Loads current settings
 
@@ -269,6 +278,7 @@ def open_settings():
     # Creates the settings Tkinter window
     settings_window = tk.Tk()
     settings_window.title("Wake Check Settings")
+    center_window(settings_window, 300, 200)
 
     # Sets the icon for the Tkinter settings window
     try:
