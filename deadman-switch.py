@@ -9,7 +9,6 @@ from tkinter import messagebox
 from pystray import Icon, MenuItem, Menu
 #from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import sys
 #import win32com.client
 
@@ -34,7 +33,6 @@ def load_config():
     Loads configuration settings from a JSON file (config.json).
     If the file does not exist, it creates it with default settings.
     Default settings include a start time, notification duration, and interval.
-    Returns the loaded (or default) configuration as a dictionary.
     """
 
     default_config = {"start_time": "02:00", "notification_duration": 60, "notification_interval": 600}
@@ -59,6 +57,9 @@ def save_config(start_time, duration, interval):
     with open(CONFIG_PATH, "w") as f:
         json.dump(config, f)
 
+def set_clicked_flag():
+    global CLICKED_FLAG
+    CLICKED_FLAG = True
 
 # ------------------- Logging Function ------------------- #
 def log_click_time(source="notification"):
@@ -123,34 +124,17 @@ def send_notification():
 
 
 # ------------------- Wait Until Time ------------------- #
-def wait_until_time(target_str):
+def wait_until_time(target_time):
     """
     Pauses the execution of the program until a specific target time (HH:MM) is reached.
-    If the target time has already passed for the current day, it waits until that time
-    on the next day. It continuously checks the STOP_FLAG to allow for early termination.
-
-    Args:
-        target_str (str): The target time in "HH:MM" 24-hour format (e.g., "02:00").
+    It continuously checks the STOP_FLAG to allow for early termination.
     """
-    target_hour, target_minute = map(int, target_str.split(":"))
-    print(f"Waiting until {target_str} to start monitoring...")
+    target_hour, target_minute = map(int, target_time.split(":"))
+    print(f"Waiting until {target_time} to start monitoring...")
     while True:
         now = datetime.now()
         # Creates a datetime object for the target time on the current day
         target_time = now.replace(hour=target_hour, minute=target_minute, second=0, microsecond=0)
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-<<<<<<< Updated upstream
-        
-        # If the target time has already passed today, set it for tomorrow
-        #if now > target_time:
-        #    target_time += timedelta(days=1)
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
-=======
->>>>>>> Stashed changes
             
         # Check if the exact target minute has been reached
         if now.hour == target_hour and now.minute == target_minute:
@@ -178,31 +162,30 @@ def monitor_loop():
     The main monitoring loop of the application.
     It waits until the configured start time, then repeatedly:
     1. Sends a notification.
-    2. Starts a temporary HTTP server to listen for a user click for a defined duration.
-    3. If no click is received within the duration, it initiates a system shutdown.
-    4. If a click is received, it waits for a defined interval before repeating the cycle.
+    2. If no click is received within the defined duration, it initiates a system shutdown.
+    3. If a click is received, it waits for a defined interval before repeating the cycle.
     The loop terminates if the global STOP_FLAG is set.
     """
     global CLICKED_FLAG # Declares intent to read this global flag
     config = load_config()
     
     # The line below is for testing purposes
-    # wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
-    wait_until_time(config["start_time"])
+    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    #wait_until_time(config["start_time"])
 
 
     while not STOP_FLAG:
         send_notification()
 
-        # After start_and_monitor_http_server returns, the temporary HTTP server is shut down.
         # Now, check if the user responded or if the application needs to stop.
-        if not user_responded and not STOP_FLAG:
+        if not CLICKED_FLAG and not STOP_FLAG:
             print("No response within duration. Shutting down.")
             # This line will initiate system shutdown with a 15-second delay.
-            os.system("shutdown /s /t 15") 
+            #os.system("shutdown /s /t 15")
+            print("Shutdown")
             break # Exits the monitoring loop as shutdown is initiated
         
-        # If STOP_FLAG was set during the monitoring/waiting phase, exit the loop
+        # If STOP_FLAG was set exit the loop
         if STOP_FLAG:
             print("Monitoring loop exiting due to STOP_FLAG.")
             break
@@ -214,15 +197,11 @@ def monitor_loop():
 
 
 # ------------------- Tray Menu Handlers ------------------- #
-def on_awake_clicked(icon, item):
+def on_awake_clicked():
     """
     Handles the event when the "I'm Awake" item is clicked in the system tray menu.
     It manually sets the global CLICKED_FLAG to True, mimicking a notification click,
     and logs the event.
-    
-    Args:
-        icon: The pystray Icon object.
-        item: The MenuItem object that was clicked.
     """
     global CLICKED_FLAG
     print("User clicked 'I'm Awake' from tray menu.")
@@ -230,70 +209,19 @@ def on_awake_clicked(icon, item):
     log_click_time(source="tray menu") # Logs the manual click
 
 
-def on_exit(icon, item):
+def on_exit(icon):
     """
     Handles the event when the "Exit" item is clicked in the system tray menu.
-    It sets the global STOP_FLAG to True to signal all running threads (like monitor_loop
-    and the HTTP server if active) to terminate gracefully.
+    It sets the global STOP_FLAG to True to signal all running threads to terminate gracefully.
     It then stops the system tray icon.
-    
-    Args:
-        icon: The pystray Icon object.
-        item: The MenuItem object that was clicked.
     """
     global STOP_FLAG
     
     STOP_FLAG = True # Signals all threads to stop
     print("Exit command received. Signaling threads to stop...")
-
-    # The start_and_monitor_http_server function manages its own lifecycle.
-    # If it's currently running, it will detect STOP_FLAG and exit gracefully.
     
     icon.stop() # Stops the pystray icon's main loop
     print("Tray icon stopped.")
-
-
-# ------------------- Startup Shortcut Function ------------------- #
-# !!! UNDER DEVELOPMENT !!!
-def create_startup_shortcut():
-    """
-    Creates a shortcut (.lnk file) to the application's executable in the
-    current user's Windows Startup folder.
-    """
-
-    try:
-        exe_path = sys.executable 
-        
-        # Gets the path to the current user's Startup folder
-        startup_folder = os.path.join(os.environ['APPDATA'], 'Microsoft', 'Windows', 'Start Menu', 'Programs', 'Startup')
-        
-        # Defines the path for the shortcut file
-        # Uses a consistent name for the shortcut for easy management
-        shortcut_name = "Deadman's Switch.lnk"
-        shortcut_path = os.path.join(startup_folder, shortcut_name)
-
-        # Creates the shell object to create shortcuts
-        shell = win32com.client.Dispatch("WScript.Shell")
-        shortcut = shell.CreateShortCut(shortcut_path)
-        shortcut.TargetPath = exe_path
-        
-        # Sets description and icon location for the shortcut
-        shortcut.Description = "Runs Deadman's Switch on Windows startup."
-        shortcut.IconLocation = os.path.join(os.path.dirname(exe_path), ICON_PATH)
-        
-        shortcut.Save() # Saves the shortcut file
-
-        messagebox.showinfo("Startup Shortcut", 
-                            f"Shortcut to '{os.path.basename(exe_path)}' created successfully in your Startup folder:\n{startup_folder}\n\n"
-                            "The app will now run automatically when you log in.")
-        print(f"Startup shortcut created at: {shortcut_path}")
-
-    except Exception as e:
-        messagebox.showerror("Startup Shortcut Error", 
-                             f"Failed to create startup shortcut.\n\nError: {e}\n\n"
-                             "This feature requires the 'pywin32' library and administrator privileges if trying to install for all users (which this version doesn't do). "
-                             "Please ensure the app is run as an executable for this feature to point correctly.")
-        print(f"Error creating startup shortcut: {e}")
 
 def restart_monitor_loop_after_delay():
     global STOP_FLAG
@@ -302,14 +230,10 @@ def restart_monitor_loop_after_delay():
     threading.Thread(target=monitor_loop, daemon=True).start()
 
 
-def open_settings(icon=None, item=None):
+def open_settings():
     """
     Opens a Tkinter window allowing the user to configure application settings
     (start time, notification duration, and interval) and manage startup settings.
-    
-    Args:
-        icon: The pystray Icon object (optional, not directly used in this function).
-        item: The MenuItem object that was clicked (optional, not directly used in this function).
     """
     config = load_config() # Loads current settings
 
@@ -382,14 +306,6 @@ def open_settings(icon=None, item=None):
     # Save button
     tk.Button(settings_window, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
     
-    # Button for creating startup shortcut
-    # Assign the button to a variable so we can control its state
-    startup_button = tk.Button(settings_window, text="Add to Windows Startup", command=create_startup_shortcut)
-    startup_button.grid(row=4, columnspan=2, pady=5)
-    
-    startup_button.config(state='disabled')
-
-
     # Configures columns to expand horizontally with the window
     settings_window.grid_columnconfigure(1, weight=1)
 
@@ -401,8 +317,7 @@ def run_tray():
     """
     Initializes and runs the main application.
     It starts the `monitor_loop` in a separate thread and then
-    creates and runs the system tray icon, which provides menu options
-    like "I'm Awake", "Settings", and "Exit".
+    creates and runs the system tray icon, which provides menu options "I'm Awake", "Settings", and "Exit".
     """
     # Starts the monitoring loop in a separate daemon thread.
     # A daemon thread will automatically terminate when the main program exits.
