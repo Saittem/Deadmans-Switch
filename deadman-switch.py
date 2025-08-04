@@ -9,7 +9,6 @@ from tkinter import messagebox
 from pystray import Icon, MenuItem, Menu
 #from winotify import Notification, Notifier, Registry, audio
 from PIL import Image, ImageDraw
-import sys
 #import win32com.client
 
 
