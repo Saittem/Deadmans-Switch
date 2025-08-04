@@ -19,9 +19,6 @@ STOP_FLAG = False
 # Ensures 'icon.ico' is in the same directory as your script/executable
 ICON_PATH = "icon.ico"
 
-app_id = "Deadman's switch"
-
-
 # ------------------- Config Functions ------------------- #
 def load_config():
     """   
