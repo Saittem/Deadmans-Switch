@@ -16,7 +16,6 @@ CLICKED_FLAG = False
 STOP_FLAG = False
 
 # Defines the path to your icon file
-# Ensures 'icon.ico' is in the same directory as your script/executable
 ICON_PATH = "icon.ico"
 
 # ------------------- Config Functions ------------------- #
@@ -111,17 +110,25 @@ def send_notification():
     Creates and displays a simple GUI window with a button to confirm being "Awake".
     The window is set to close automatically after 1 minute if the button is not clicked.
     """
+
+    WINDOW_WIDTH = 325
+    WINDOW_HEIGHT = 125
+
     root = tk.Tk()
     root.title("Are you awake?")
-    center_window(root, 300, 100)
-    root.geometry("300x100")
+    center_window(root, WINDOW_WIDTH, WINDOW_HEIGHT)
+    root.geometry(str(WINDOW_WIDTH) + "x" + str(WINDOW_HEIGHT))
+    # Makes the window always on top
+    root.attributes("-topmost", True)
+    root.overrideredirect(True)
     label = tk.Label(root, text="Click the button or your PC will shut down in 1 minute.")
-    label.pack()
+    label.pack(pady=20)
     button = tk.Button(root, text="I'm Awake!", command=lambda: (root.destroy(), set_clicked_flag(), log_click_time(source="notification")))
+    button.pack(pady=10)
     button.pack()
     root.after(60000, root.destroy)  # Destroy the window after 1 minute
-    root.mainloop()
     print("Notification shown. Waiting for user response via window click.")
+    root.mainloop()
 
 
 # ------------------- Wait Until Time ------------------- #
@@ -171,8 +178,8 @@ def monitor_loop():
     config = load_config()
     
     # The line below is for testing purposes
-    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
-    #wait_until_time(config["start_time"])
+    #wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    wait_until_time(config["start_time"])
 
 
     while not STOP_FLAG:
@@ -182,8 +189,8 @@ def monitor_loop():
         if not CLICKED_FLAG and not STOP_FLAG:
             print("No response within duration. Shutting down.")
             # This line will initiate system shutdown with a 15-second delay.
-            #os.system("shutdown /s /t 15")
-            print("Shutdown")
+            os.system("shutdown /s /t 15")
+            print("Shutting down...")
             break # Exits the monitoring loop as shutdown is initiated
         
         # If STOP_FLAG was set exit the loop
@@ -274,11 +281,14 @@ def open_settings():
         except ValueError:
             messagebox.showerror("Error", "Invalid input. Please check time format (HH:MM) and ensure duration/interval are numbers.")
 
+    WINDOW_WIDTH = 300
+    WINDOW_HEIGHT = 200
 
     # Creates the settings Tkinter window
     settings_window = tk.Tk()
     settings_window.title("Wake Check Settings")
-    center_window(settings_window, 300, 200)
+    settings_window.attributes('-toolwindow', True)
+    center_window(settings_window, WINDOW_WIDTH, WINDOW_HEIGHT)
 
     # Sets the icon for the Tkinter settings window
     try:
