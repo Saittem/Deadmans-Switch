@@ -14,6 +14,7 @@ CONFIG_PATH = "config.json"
 LOG_FILE_PATH = "wake_log.txt"
 CLICKED_FLAG = False
 STOP_FLAG = False
+CONFIG = None
 
 # Defines the path to your icon file
 ICON_PATH = "icon.ico"
@@ -26,13 +27,15 @@ def load_config():
     Default settings include a start time, notification duration, and interval.
     """
 
+    global CONFIG
+
     default_config = {"start_time": "02:00", "notification_duration": 60, "notification_interval": 600}
     if not os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "w") as f:
             json.dump(default_config, f)
         return default_config
     with open(CONFIG_PATH, "r") as f:
-        return json.load(f)
+        CONFIG = json.load(f)
 
 def save_config(start_time, duration, interval):
     """
@@ -40,13 +43,15 @@ def save_config(start_time, duration, interval):
     to the config.json file in JSON format.
     """
 
-    config = {
+    global CONFIG
+
+    CONFIG = {
         "start_time": start_time,
         "notification_duration": int(duration),
         "notification_interval": int(interval)
     }
     with open(CONFIG_PATH, "w") as f:
-        json.dump(config, f)
+        json.dump(CONFIG, f)
 
 def set_clicked_flag():
     """Sets the global CLICKED_FLAG to True, mimicking a notification click."""
@@ -126,7 +131,7 @@ def send_notification():
     button = tk.Button(root, text="I'm Awake!", command=lambda: (root.destroy(), set_clicked_flag(), log_click_time(source="notification")))
     button.pack(pady=10)
     button.pack()
-    root.after(60000, root.destroy)  # Destroy the window after 1 minute
+    root.after(CONFIG["notification_duration"], root.destroy)  # Destroy the window after 1 minute
     print("Notification shown. Waiting for user response via window click.")
     root.mainloop()
 
@@ -174,12 +179,12 @@ def monitor_loop():
     3. If a click is received, it waits for a defined interval before repeating the cycle.
     The loop terminates if the global STOP_FLAG is set.
     """
-    global CLICKED_FLAG # Declares intent to read this global flag
-    config = load_config()
+    global CLICKED_FLAG
+    global CONFIG
     
     # The line below is for testing purposes
-    #wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
-    wait_until_time(config["start_time"])
+    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    #wait_until_time(CONFIG["start_time"])
 
 
     while not STOP_FLAG:
@@ -189,7 +194,7 @@ def monitor_loop():
         if not CLICKED_FLAG and not STOP_FLAG:
             print("No response within duration. Shutting down.")
             # This line will initiate system shutdown with a 15-second delay.
-            os.system("shutdown /s /t 15")
+            #os.system("shutdown /s /t 15")
             print("Shutting down...")
             break # Exits the monitoring loop as shutdown is initiated
         
@@ -198,8 +203,9 @@ def monitor_loop():
             print("Monitoring loop exiting due to STOP_FLAG.")
             break
 
-        print(f"User confirmed. Sleeping for {config['notification_interval']} seconds before next check.")
-        time.sleep(config["notification_interval"])
+        print(f"User confirmed. Sleeping for {CONFIG['notification_interval']} seconds before next check.")
+        CLICKED_FLAG = False
+        time.sleep(CONFIG["notification_interval"])
     
     print("Monitoring loop finished.")
 
@@ -243,7 +249,7 @@ def open_settings():
     Opens a Tkinter window allowing the user to configure application settings
     (start time, notification duration, and interval).
     """
-    config = load_config() # Loads current settings
+    global CONFIG
 
     def save():
         global STOP_FLAG
@@ -254,13 +260,10 @@ def open_settings():
             new_interval = int(interval_entry.get())
             new_start_time = start_time_entry.get()
 
-            # Loads old config
-            old_config = load_config()
-
             # Checks if any setting changed
-            if (old_config["start_time"] != new_start_time or
-                old_config["notification_duration"] != new_duration or
-                old_config["notification_interval"] != new_interval):
+            if (CONFIG["start_time"] != new_start_time or
+                CONFIG["notification_duration"] != new_duration or
+                CONFIG["notification_interval"] != new_interval):
 
                 print("Settings changed. Saving and restarting monitoring loop...")
 
@@ -302,17 +305,17 @@ def open_settings():
     # Creates and places labels and entry fields for settings
     tk.Label(settings_window, text="Start Time (HH:MM 24hr):").grid(row=0, column=0, padx=5, pady=5, sticky="w")
     start_time_entry = tk.Entry(settings_window)
-    start_time_entry.insert(0, config["start_time"]) # Populate with current setting
+    start_time_entry.insert(0, CONFIG["start_time"]) # Populate with current setting
     start_time_entry.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
 
     tk.Label(settings_window, text="Notification Duration (seconds):").grid(row=1, column=0, padx=5, pady=5, sticky="w")
     duration_entry = tk.Entry(settings_window)
-    duration_entry.insert(0, str(config["notification_duration"]))
+    duration_entry.insert(0, str(CONFIG["notification_duration"]))
     duration_entry.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
     tk.Label(settings_window, text="Interval After Click (seconds):").grid(row=2, column=0, padx=5, pady=5, sticky="w")
     interval_entry = tk.Entry(settings_window)
-    interval_entry.insert(0, str(config["notification_interval"]))
+    interval_entry.insert(0, str(CONFIG["notification_interval"]))
     interval_entry.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
 
     # Save button
