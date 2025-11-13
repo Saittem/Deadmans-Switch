@@ -1,5 +1,5 @@
 {
-    "start_time": "02:00",
+    "target_time": "02:00",
     "notification_duration": 60,
     "notification_interval": 600,
     "script_version": "notification"
