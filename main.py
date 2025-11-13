@@ -1,11 +1,35 @@
 from datetime import datetime
-from datetime import timedelta
+import threading
+import os
+import config
+import gui
 
 def get_time():
     return datetime.now().strftime("%H:%M:%S")
 
+def monitor_time():
+    while True:
+        current_time = get_time()
+        if current_time == config.CONFIG["target_time"]:
+            os.system("shutdown /s /t 0")
+
+def input_listener():
+    while True:
+        user_input = input()
+        if user_input.lower() == "exit":
+            print("Goodbye!")
+            os._exit(0)
+
 if __name__ == "__main__":
-    target_time = (datetime.now() + timedelta(minutes=1)).strftime("%H:%M:%S")
-    while get_time() != target_time:
+    config.load_config()
+    target_time = config.CONFIG["target_time"]
+
+    # Start threads correctly
+    threading.Thread(target=monitor_time, daemon=True).start()
+    threading.Thread(target=input_listener, daemon=True).start()
+
+    print("Time to sleep:", target_time)
+
+    # Keep main thread alive
+    while True:
         pass
-    print("Time to wake up!")
