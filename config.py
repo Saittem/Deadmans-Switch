@@ -20,4 +20,15 @@ def load_config():
         with open(CONFIG_PATH, "w") as f:
             json.dump(CONFIG, f, indent=4)
 
+def save_config(target_time, notification_duration, notification_interval, script_version):
+
+    global CONFIG
+
+    CONFIG["target_time"] = target_time
+    CONFIG["notification_duration"] = int(notification_duration)
+    CONFIG["notification_interval"] = int(notification_interval)
+    CONFIG["script_version"] = script_version
+
+    with open(CONFIG_PATH, "w") as f:
+        json.dump(CONFIG, f, indent=4)
 
