@@ -19,6 +19,8 @@ def input_listener():
         if user_input.lower() == "exit":
             print("Goodbye!")
             os._exit(0)
+        elif user_input.lower() == "settings":
+            gui.open_settings()
 
 if __name__ == "__main__":
     config.load_config()
