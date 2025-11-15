@@ -2,6 +2,7 @@ import json
 import os
 
 CONFIG_PATH = "config.json"
+CONFIG = {}
 
 def load_config():
 
