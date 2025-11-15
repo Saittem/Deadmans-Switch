@@ -2,19 +2,29 @@ import webview
 import config
 
 HTML_PATH = "web/index.html"
-webview.create_window("Settings", HTML_PATH, width=400, height=300)
 
 def open_settings():
     config.load_config()
     webview.start()
 
-def save():
-    target_time = webview.get_value("target_time")
-    notification_duration = webview.get_value("notification_duration")
-    notification_interval = webview.get_value("notification_interval")
-    script_version = webview.get_value("script_version")
-    config.save_config(target_time, notification_duration, notification_interval, config.CONFIG["script_version"])
+class Api:
 
+    def save(self, target_time_value, notification_duration_value, notification_interval_value, script_version_value):
+        print("Saving settings...")
+        target_time = target_time_value
+        notification_duration = notification_duration_value
+        notification_interval = notification_interval_value
+        script_version = script_version_value
+        config.save_config(target_time, notification_duration, notification_interval, script_version)
+
+api = Api()
+webview.create_window(
+    title="Settings",
+    url=HTML_PATH,
+    width=400,
+    height=300,
+    js_api=api
+)
 
 if __name__ == "__main__":
     webview.start()

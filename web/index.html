@@ -23,4 +23,15 @@
     <br>
     <button onclick="save()">Save</button>
 </body>
+<script>
+    const api = pywebview.api;
+
+    function save() {
+        target_time_value = document.getElementById("target_time").value
+        notification_duration_value = document.getElementById("notification_duration").value
+        notification_interval_value = document.getElementById("notification_interval").value
+        script_version_value = document.getElementById("script_version").value
+        pywebview.api.save(target_time_value, notification_duration_value, notification_interval_value, script_version_value);
+    }
+</script>
 </html>
