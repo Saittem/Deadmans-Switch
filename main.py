@@ -14,7 +14,8 @@ def monitor_time():
     while True:
         current_time = get_time()
         if current_time == config.CONFIG["target_time"]:
-            os.system("shutdown /s /t 15")
+            print("Time to sleep!")
+            #os.system("shutdown /s /t 15")
         time.sleep(1)
 
 
@@ -47,3 +48,4 @@ if __name__ == "__main__":
 
     while True:
         time.sleep(1)
+    
