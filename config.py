@@ -1,35 +1,27 @@
-import json
 import os
+import json
 
 CONFIG_PATH = "config.json"
-CONFIG = {}
+
+default_config = {
+    "start_time": "02:00",
+    "notification_duration": 60,
+    "notification_interval": 600
+}
 
 def load_config():
-
-    global CONFIG
-
-    if os.path.exists(CONFIG_PATH):
-        with open(CONFIG_PATH, "r") as f:
-            CONFIG = json.load(f)
-    else:
-        CONFIG = {
-            "target_time": "02:00",
-            "notification_duration": 60,
-            "notification_interval": 600,
-            "script_version": "notification"
-        }
+    if not os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "w") as f:
-            json.dump(CONFIG, f, indent=4)
+            json.dump(default_config, f)
+        return default_config
+    with open(CONFIG_PATH, "r") as f:
+        return json.load(f)
 
-def save_config(target_time, notification_duration, notification_interval, script_version):
-
-    global CONFIG
-
-    CONFIG["target_time"] = target_time
-    CONFIG["notification_duration"] = int(notification_duration)
-    CONFIG["notification_interval"] = int(notification_interval)
-    CONFIG["script_version"] = script_version
-
+def save_config(start_time, duration, interval):
+    config = {
+        "start_time": start_time,
+        "notification_duration": int(duration),
+        "notification_interval": int(interval)
+    }
     with open(CONFIG_PATH, "w") as f:
-        json.dump(CONFIG, f, indent=4)
-
+        json.dump(config, f)
