@@ -1,9 +1,14 @@
-import webview
+import tkinter as tk
+from tkinter import ttk
+from tkinter import messagebox
 import pystray
 from PIL import Image, ImageDraw
 import config
 
-HTML_PATH = "web/index.html"
+
+def save(t, d, i, s):
+    config.save_config(t, d, i, s)
+    messagebox.showinfo("Saved", "Settings saved successfully!")
 
 
 def create_image(width, height, color1, color2):
@@ -38,26 +43,45 @@ def run_tray():
 
 def open_settings():
     config.load_config()
-    webview.start()
+    #settings_window.show()
 
-class Api:
+    root = tk.Tk()
+    root.title("Settings")
+    root.geometry("350x200")
 
-    def save(self, target_time_value, notification_duration_value, notification_interval_value, script_version_value):
-        print("Saving settings...")
-        target_time = target_time_value
-        notification_duration = notification_duration_value
-        notification_interval = notification_interval_value
-        script_version = script_version_value
-        config.save_config(target_time, notification_duration, notification_interval, script_version)
+    # ---- Target Time ----
+    label_target_time = tk.Label(root, text="Target time:")
+    label_target_time.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+    entry_target_time = tk.Entry(root)
+    entry_target_time.grid(row=0, column=1, padx=10, pady=5)
+    entry_target_time.insert(0, "02:00")
 
-api = Api()
-webview.create_window(
-    title="Settings",
-    url=HTML_PATH,
-    width=400,
-    height=300,
-    js_api=api
-)
+    # ---- Notification Duration ----
+    label_notification_duration = tk.Label(root, text="Notification duration:")
+    label_notification_duration.grid(row=1, column=0, sticky="w", padx=10, pady=5)
+    entry_notification_duration = tk.Entry(root)
+    entry_notification_duration.grid(row=1, column=1, padx=10, pady=5)
+    entry_notification_duration.insert(0, "60")
+
+    # ---- Notification Interval ----
+    label_notification_interval = tk.Label(root, text="Notification interval:")
+    label_notification_interval.grid(row=2, column=0, sticky="w", padx=10, pady=5)
+    entry_notification_interval = tk.Entry(root)
+    entry_notification_interval.grid(row=2, column=1, padx=10, pady=5)
+    entry_notification_interval.insert(0, "600")
+
+    # ---- Script Version ----
+    label_script_version = tk.Label(root, text="Script version:")
+    label_script_version.grid(row=3, column=0, sticky="w", padx=10, pady=5)
+    combo_script_version = ttk.Combobox(root, values=["notification", "activity"], state="readonly")
+    combo_script_version.grid(row=3, column=1, padx=10, pady=5)
+    combo_script_version.current(0)
+
+    # ---- Save Button ----
+    save_button = tk.Button(root, text="Save", command=lambda: save(entry_target_time, entry_notification_duration, entry_notification_interval, combo_script_version))
+    save_button.grid(row=4, column=0, columnspan=2, pady=15)
+
+    root.mainloop()
 
 if __name__ == "__main__":
     run_tray()
