@@ -1,4 +1,5 @@
 import tkinter as tk
+from playsound3 import playsound
 from utils import center_window, set_clicked_flag, log_click_time
 
 def send_notification():
@@ -25,4 +26,5 @@ def send_notification():
 
     root.after(60000, root.destroy)
     print("Notification sent.")
+    playsound("notification.mp3", block=False)
     root.mainloop()
