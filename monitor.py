@@ -12,6 +12,8 @@ def wait_until_time(target):
     now = datetime.now()
     target_dt = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
 
+    print(f"Waiting until {target}")
+
     if target_dt <= now:
         target_dt += timedelta(days=1)
 
@@ -29,10 +31,13 @@ def monitor_loop():
         send_notification()
 
         if not CLICKED_FLAG and not STOP_FLAG:
-            os.system("shutdown /s /t 15")
+            print("Shutting down...")
+            #os.system("shutdown /s /t 15")
             break
 
         time.sleep(config["notification_interval"])
+    
+    print("Monitor loop stopped.")
 
 def restart_monitor_loop_after_delay():
     global STOP_FLAG

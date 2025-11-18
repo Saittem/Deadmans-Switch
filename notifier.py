@@ -24,4 +24,5 @@ def send_notification():
     btn.pack(pady=10)
 
     root.after(60000, root.destroy)
+    print("Notification sent.")
     root.mainloop()

@@ -13,8 +13,10 @@ def load_config():
     if not os.path.exists(CONFIG_PATH):
         with open(CONFIG_PATH, "w") as f:
             json.dump(default_config, f)
+        print("Loaded default config.")
         return default_config
     with open(CONFIG_PATH, "r") as f:
+        print("Loaded config.")
         return json.load(f)
 
 def save_config(start_time, duration, interval):
@@ -24,4 +26,5 @@ def save_config(start_time, duration, interval):
         "notification_interval": int(interval)
     }
     with open(CONFIG_PATH, "w") as f:
+        print("Saved config.")
         json.dump(config, f)

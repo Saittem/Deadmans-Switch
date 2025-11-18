@@ -11,6 +11,7 @@ def on_awake_clicked():
 def on_exit(icon):
     global STOP_FLAG
     STOP_FLAG = True
+    print("Tray icon stopped.")
     icon.stop()
 
 def run_tray():
@@ -21,4 +22,5 @@ def run_tray():
         MenuItem("Settings", open_settings),
         MenuItem("Exit", on_exit)
     ))
+    print("Tray icon running.")
     icon.run()
