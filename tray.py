@@ -1,25 +1,25 @@
 from pystray import Icon, MenuItem, Menu
-from utils import create_icon_image, set_clicked_flag, log_click_time, STOP_FLAG
-from monitor import monitor_loop
-from settings_window import open_settings
 import threading
 
+import utils as _utils
+import monitor as _monitor
+import settings_window as _settings
+
 def on_awake_clicked():
-    set_clicked_flag()
-    log_click_time("tray menu")
+    _utils.set_clicked_flag()
+    _utils.log_click_time("tray menu")
 
 def on_exit(icon):
-    global STOP_FLAG
-    STOP_FLAG = True
+    _utils.STOP_FLAG = True
     print("Tray icon stopped.")
     icon.stop()
 
 def run_tray():
-    threading.Thread(target=monitor_loop, daemon=True).start()
+    threading.Thread(target=_monitor.monitor_loop, daemon=True).start()
 
-    icon = Icon("WakeChecker", icon=create_icon_image(), menu=Menu(
+    icon = Icon("WakeChecker", icon=_utils.create_icon_image(), menu=Menu(
         MenuItem("I'm Awake", on_awake_clicked),
-        MenuItem("Settings", open_settings),
+        MenuItem("Settings", _settings.open_settings),
         MenuItem("Exit", on_exit)
     ))
     print("Tray icon running.")

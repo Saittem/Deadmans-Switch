@@ -1,11 +1,10 @@
 import time
 import threading
 from datetime import datetime, timedelta
-import os
 
-from config import load_config
-from utils import CLICKED_FLAG, STOP_FLAG
-from notifier import send_notification
+import config as _config
+import utils as _ituls
+import notifier as _notifier
 
 def wait_until_time(target):
     hour, minute = map(int, target.split(":"))
@@ -17,20 +16,20 @@ def wait_until_time(target):
     if target_dt <= now:
         target_dt += timedelta(days=1)
 
-    while datetime.now() < target_dt and not STOP_FLAG:
+    while datetime.now() < target_dt and not _ituls.STOP_FLAG:
         time.sleep(1)
 
 def monitor_loop():
-    global CLICKED_FLAG
-    config = load_config()
+    config = _config.load_config()
 
-    wait_until_time(config["target_time"])
+    #wait_until_time(config["target_time"])
+    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
 
-    while not STOP_FLAG:
-        CLICKED_FLAG = False
-        send_notification()
+    while not _ituls.STOP_FLAG:
+        _ituls.CLICKED_FLAG = False
+        _notifier.send_notification()
 
-        if not CLICKED_FLAG and not STOP_FLAG:
+        if not _ituls.CLICKED_FLAG and not _ituls.STOP_FLAG:
             print("Shutting down...")
             #os.system("shutdown /s /t 15")
             break
@@ -40,7 +39,6 @@ def monitor_loop():
     print("Monitor loop stopped.")
 
 def restart_monitor_loop_after_delay():
-    global STOP_FLAG
     time.sleep(1)
-    STOP_FLAG = False
+    _ituls.STOP_FLAG = False
     threading.Thread(target=monitor_loop, daemon=True).start()

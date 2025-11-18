@@ -1,13 +1,13 @@
 import tkinter as tk
 from playsound3 import playsound
-from utils import center_window, set_clicked_flag, log_click_time
+import utils as _utils
 
 def send_notification():
     WIDTH, HEIGHT = 325, 125
 
     root = tk.Tk()
     root.title("Are you awake?")
-    center_window(root, WIDTH, HEIGHT)
+    _utils.center_window(root, WIDTH, HEIGHT)
     root.attributes("-topmost", True)
     root.overrideredirect(True)
 
@@ -18,8 +18,8 @@ def send_notification():
         text="I'm Awake!",
         command=lambda: (
             root.destroy(),
-            set_clicked_flag(),
-            log_click_time("notification")
+            _utils.set_clicked_flag(),
+            _utils.log_click_time("notification")
         )
     )
     btn.pack(pady=10)

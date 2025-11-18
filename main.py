@@ -1,4 +1,4 @@
-from tray import run_tray
+import tray as _tray
 
 if __name__ == "__main__":
-    run_tray()
+    _tray.run_tray()

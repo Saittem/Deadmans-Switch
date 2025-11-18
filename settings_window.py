@@ -4,15 +4,14 @@ from tkinter import messagebox
 import threading
 import os
 
-from config import load_config, save_config
-from utils import center_window, ICON_PATH, STOP_FLAG
-from monitor import restart_monitor_loop_after_delay
+import config as _config
+import utils as _utils
+import monitor as _monitor
 
 def open_settings():
-    config = load_config()
+    config = _config.load_config()
 
     def save():
-        global STOP_FLAG
 
         try:
             new_time = entry_target_time.get()
@@ -20,7 +19,7 @@ def open_settings():
             interval = int(entry_notification_interval.get())
             version = combo_monitoring_variant.get()
 
-            old = load_config()
+            old = _config.load_config()
             changed = (
                 old["target_time"] != new_time or
                 old["notification_duration"] != duration or
@@ -29,10 +28,10 @@ def open_settings():
             )
 
             if changed:
-                save_config(new_time, duration, interval, version)
-                STOP_FLAG = True
+                _config.save_config(new_time, duration, interval, version)
+                _utils.STOP_FLAG = True
                 settings.destroy()
-                threading.Thread(target=restart_monitor_loop_after_delay, daemon=True).start()
+                threading.Thread(target=_monitor.restart_monitor_loop_after_delay, daemon=True).start()
             else:
                 settings.destroy()
 
@@ -43,10 +42,10 @@ def open_settings():
     settings = tk.Tk()
     settings.title("Settings")
     settings.geometry("325x175")
-    center_window(settings, 300, 175)
+    _utils.center_window(settings, 300, 175)
 
-    if os.path.exists(ICON_PATH):
-        settings.iconbitmap(ICON_PATH)
+    if os.path.exists(_utils.ICON_PATH):
+        settings.iconbitmap(_utils.ICON_PATH)
 
     # ---- Target Time ----
     label_target_time = tk.Label(settings, text="Target time:")
