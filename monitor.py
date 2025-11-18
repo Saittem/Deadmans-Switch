@@ -22,7 +22,7 @@ def monitor_loop():
     global CLICKED_FLAG
     config = load_config()
 
-    wait_until_time(config["start_time"])
+    wait_until_time(config["target_time"])
 
     while not STOP_FLAG:
         CLICKED_FLAG = False

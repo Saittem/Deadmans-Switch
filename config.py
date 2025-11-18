@@ -4,7 +4,7 @@ import json
 CONFIG_PATH = "config.json"
 
 default_config = {
-    "start_time": "02:00",
+    "target_time": "02:00",
     "notification_duration": 60,
     "notification_interval": 600
 }
@@ -19,7 +19,7 @@ def load_config():
 
 def save_config(start_time, duration, interval):
     config = {
-        "start_time": start_time,
+        "target_time": start_time,
         "notification_duration": int(duration),
         "notification_interval": int(interval)
     }
