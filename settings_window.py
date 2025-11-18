@@ -1,4 +1,5 @@
 import tkinter as tk
+from tkinter import ttk
 from tkinter import messagebox
 import threading
 import os
@@ -14,19 +15,21 @@ def open_settings():
         global STOP_FLAG
 
         try:
-            new_time = start_time_entry.get()
-            duration = int(duration_entry.get())
-            interval = int(interval_entry.get())
+            new_time = entry_target_time.get()
+            duration = int(entry_notification_duration.get())
+            interval = int(entry_notification_interval.get())
+            version = combo_monitoring_variant.get()
 
             old = load_config()
             changed = (
-                old["start_time"] != new_time or
+                old["target_time"] != new_time or
                 old["notification_duration"] != duration or
-                old["notification_interval"] != interval
+                old["notification_interval"] != interval or
+                old["monitoring_variant"] != version
             )
 
             if changed:
-                save_config(new_time, duration, interval)
+                save_config(new_time, duration, interval, version)
                 STOP_FLAG = True
                 settings.destroy()
                 threading.Thread(target=restart_monitor_loop_after_delay, daemon=True).start()
@@ -36,28 +39,45 @@ def open_settings():
         except Exception:
             messagebox.showerror("Error", "Invalid input.")
 
+
     settings = tk.Tk()
-    settings.title("Wake Check Settings")
-    center_window(settings, 300, 200)
+    settings.title("Settings")
+    settings.geometry("325x175")
+    center_window(settings, 300, 175)
 
     if os.path.exists(ICON_PATH):
         settings.iconbitmap(ICON_PATH)
 
-    tk.Label(settings, text="Start Time (HH:MM):").grid(row=0, column=0)
-    start_time_entry = tk.Entry(settings)
-    start_time_entry.insert(0, config["start_time"])
-    start_time_entry.grid(row=0, column=1)
+    # ---- Target Time ----
+    label_target_time = tk.Label(settings, text="Target time:")
+    label_target_time.grid(row=0, column=0, sticky="w", padx=10, pady=5)
+    entry_target_time = tk.Entry(settings)
+    entry_target_time.grid(row=0, column=1, padx=10, pady=5)
+    entry_target_time.insert(0, "02:00")
 
-    tk.Label(settings, text="Duration (sec):").grid(row=1, column=0)
-    duration_entry = tk.Entry(settings)
-    duration_entry.insert(0, config["notification_duration"])
-    duration_entry.grid(row=1, column=1)
+    # ---- Notification Duration ----
+    label_notification_duration = tk.Label(settings, text="Notification duration:")
+    label_notification_duration.grid(row=1, column=0, sticky="w", padx=10, pady=5)
+    entry_notification_duration = tk.Entry(settings)
+    entry_notification_duration.grid(row=1, column=1, padx=10, pady=5)
+    entry_notification_duration.insert(0, "60")
 
-    tk.Label(settings, text="Interval (sec):").grid(row=2, column=0)
-    interval_entry = tk.Entry(settings)
-    interval_entry.insert(0, config["notification_interval"])
-    interval_entry.grid(row=2, column=1)
+    # ---- Notification Interval ----
+    label_notification_interval = tk.Label(settings, text="Notification interval:")
+    label_notification_interval.grid(row=2, column=0, sticky="w", padx=10, pady=5)
+    entry_notification_interval = tk.Entry(settings)
+    entry_notification_interval.grid(row=2, column=1, padx=10, pady=5)
+    entry_notification_interval.insert(0, "600")
 
-    tk.Button(settings, text="Save", command=save).grid(row=3, columnspan=2, pady=10)
+    # ---- Monitoring Variant ----
+    label_monitoring_variant = tk.Label(settings, text="Script version:")
+    label_monitoring_variant.grid(row=3, column=0, sticky="w", padx=10, pady=5)
+    combo_monitoring_variant = ttk.Combobox(settings, values=["notification", "activity"], state="readonly")
+    combo_monitoring_variant.grid(row=3, column=1, padx=10, pady=5)
+    combo_monitoring_variant.current(0)
+
+    # ---- Save Button ----
+    save_button = tk.Button(settings, text="Save", command=save)
+    save_button.grid(row=4, column=0, columnspan=2, pady=15)
 
     settings.mainloop()
