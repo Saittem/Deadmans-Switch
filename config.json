@@ -1,1 +1,6 @@
-{"start_time": "02:00", "notification_duration": 60, "notification_interval": 600}
+{
+    "target_time": "02:00",
+    "notification_duration": 60,
+    "notification_interval": 600,
+    "monitoring_variant": "notification"
+}
