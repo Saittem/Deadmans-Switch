@@ -1,6 +1,1 @@
-{
-    "target_time": "02:00",
-    "notification_duration": 60,
-    "notification_interval": 600,
-    "monitoring_variant": "notification"
-}
+{"target_time": "02:00", "notification_duration": 60, "notification_interval": 60, "monitoring_variant": "activity", "inactivity_threshold": 60}
