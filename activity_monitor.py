@@ -1,5 +1,6 @@
 from pynput import keyboard, mouse
 import time
+import os
 
 import notifier as _notifier
 import config as _config
@@ -13,7 +14,6 @@ def update_activity(*_):
     global last_activity, inactive
     last_activity = time.time()
 
-    # If the user was inactive and now active again
     if inactive:
         print("User active again.")
         inactive = False
@@ -24,14 +24,22 @@ def activity_watcher():
         time.sleep(1)
         if not inactive and (time.time() - last_activity > _config.load_config()["inactivity_threshold"]):
             inactive = True
+            
+            _utils.CLICKED_FLAG = False
             _notifier.send_notification()
+            
+            if not _utils.CLICKED_FLAG and not _utils.STOP_FLAG:
+                print("Shutting down...")
+                stop_listeners()
+                os.system("shutdown /s /t 15")
+                break
     
     print("Activity watcher stopped.")
     stop_listeners()
 
 def start_listeners():
     global listeners
-    stop_listeners()  # Stop any existing listeners first
+    stop_listeners()
     
     kb_listener = keyboard.Listener(on_press=update_activity, on_release=update_activity)
     mouse_listener = mouse.Listener(on_move=update_activity, on_click=update_activity, on_scroll=update_activity)
