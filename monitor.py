@@ -22,8 +22,8 @@ def wait_until_time(target):
 def monitor_loop():
     config = _config.load_config()
 
-    #wait_until_time(config["target_time"])
-    wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
+    wait_until_time(config["target_time"])
+    #wait_until_time((datetime.now() + timedelta(minutes=1)).strftime("%H:%M"))
 
     while not _ituls.STOP_FLAG:
         _ituls.CLICKED_FLAG = False
@@ -31,7 +31,7 @@ def monitor_loop():
 
         if not _ituls.CLICKED_FLAG and not _ituls.STOP_FLAG:
             print("Shutting down...")
-            #os.system("shutdown /s /t 15")
+            os.system("shutdown /s /t 15")
             break
 
         time.sleep(config["notification_interval"])
